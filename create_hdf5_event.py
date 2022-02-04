@@ -83,6 +83,9 @@ def create_hdf5(hdf_filename, csv_filename, root):
                 continue
 
             event_list.append(data)
+            # if label is nothing
+            if len(label) == 0:
+                label = 'other gestures'
             label_list.append(label)
 
 if __name__ == "__main__":
