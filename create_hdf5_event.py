@@ -4,6 +4,25 @@ import os
 import pandas as pd
 import cv2
 
+"""
+
+gesture_event.hdf5
+    - data
+        - test
+            - user24
+                - event
+                    -> [total(total of frames), x(width of frame), y(height of frame), 3(channel)]
+                - label
+            - user25
+        - train
+            - user01
+            ...
+            - user23
+
+
+"""
+
+
 def get_event_info(filename):
     video = cv2.VideoCapture(filename)
 
