@@ -34,6 +34,12 @@ def get_filename(root, user, num, filesNum):
         return root + f'\\{user}_data_rgb\\{user}-{n}.mp4'
     return root + f'\\{user}_data_rgb\\{user}_data-{n}.mp4'
 
+def get_user_name(user):
+    u = str(user)
+    if user < 10:
+        return '0'+u
+    return u
+
 def create_hdf5(hdf_filename, csv_filename, root):
     label_file = pd.read_csv(csv_filename)
 
@@ -44,14 +50,12 @@ def create_hdf5(hdf_filename, csv_filename, root):
     # list of total of files in user's folder
     files_num_list = []
     for user in set(USER):
-        u = str(user)
-        if user < 10:
-            u = '0' + u
+        u = get_user_name(user)
         files_num_list.append(get_files_count(root + f'\\{u}_data_rgb'))
 
     with h5py.File(hdf_filename, 'w') as file:
         file.clear()
-        f = file.create_group("ALL RGB Data")
+        f = file.create_group("data")
 
         current_user = 1
         u = '01'
@@ -59,34 +63,35 @@ def create_hdf5(hdf_filename, csv_filename, root):
         event_list = []
         # label
         label_list = []
-        for user, num, label in zip(USER, NUM, LABEL):
-            # if it finishes getting the information about all videos of a user,
-            # create datasets under user's folder
-            # condition code below can check if it finishes or not.
-            if current_user != user:
-                user_grp = f.create_group(str(current_user))
-                event_dset = user_grp.create_dataset('event', data=event_list, dtype=np.uint8)
-                label_dset = user_grp.create_dataset('label', data=label_list)
-                current_user = user
 
-                event_list.clear()
-                label_list.clear()
-            u = str(user)
-            if user < 10:
-                u = '0' + u
+        train_grp = f.create_group("train")
+        test_grp = f.create_group("test")
+        for user, num, label in zip(USER, NUM, LABEL):
+
+            u = get_user_name(user)
             video_filename = get_filename(root, u, num, files_num_list[user-1])
-            print(video_filename, os.path.isfile(video_filename))
+            #print(video_filename, os.path.isfile(video_filename))
             # double check if the video file exists
             if os.path.isfile(video_filename):
                 data = get_event_info(video_filename)
             else:
+                print(video_filename, os.path.isfile(video_filename))
                 continue
 
             event_list.append(data)
             # if label is nothing
-            if len(label) == 0:
-                label = 'other gestures'
-            label_list.append(label)
+            label_list.append(label if len(label)!=0 else 'other gestures')
+
+            # if it finishes getting the information about all videos of a user,
+            # create datasets under user's folder
+            if num == files_num_list[user-1]:
+                g = train_grp if user <= 23 else test_grp
+                user_grp = g.create_group(f'user{get_user_name(user)}')
+                event_dset = user_grp.create_dataset('event', data=event_list, dtype=np.uint8)
+                label_dset = user_grp.create_dataset('label', data=label_list)
+
+                event_list.clear()
+                label_list.clear()
 
 if __name__ == "__main__":
     #get_event_info(r'C:\Users\yeieu\Downloads\All_RGB_Data\01_data_rgb\01_data-01.mp4')
