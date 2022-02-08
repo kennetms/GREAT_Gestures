@@ -45,11 +45,15 @@ def get_filename(root, user, num, filesNum):
     n = str(num)
     if filesNum < 100 and num < 10:
         n = '0' + n
-    elif filesNum > 100 and num < 10:
+    elif filesNum >= 100 and num < 10:
         n = '00' + n
-    elif filesNum > 100 and num >= 10 and num < 100:
+    elif filesNum >= 100 and num >= 10 and num < 100:
         n = '0' + n
     if filesNum >= 100:
+        if user in ['24', '23', '21', '10', '05', '03']:
+            return root + f'\\{user}_data_rgb\\{user}_data-{n}.mp4'
+        return root + f'\\{user}_data_rgb\\{user}-{n}.mp4'
+    if user in ['20', '15']:
         return root + f'\\{user}_data_rgb\\{user}-{n}.mp4'
     return root + f'\\{user}_data_rgb\\{user}_data-{n}.mp4'
 
