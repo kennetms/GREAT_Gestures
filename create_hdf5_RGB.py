@@ -1,13 +1,14 @@
 import numpy as np
+from torch import fill_
 from tqdm import tqdm
 import h5py
 import os
 import pandas as pd
 import cv2
 import glob
+import pickle
 
-
-def create_hdf5(directory, hdf5_filename, split_number):
+def create_hdf5(directory, hdf5_filename, split_number, csv_path):
     '''
     Make Hdf5 file with RGB data
 
@@ -27,16 +28,15 @@ def create_hdf5(directory, hdf5_filename, split_number):
             |- user01 ( group )
                 |- meta (attribute)
                 |- data_001(dataset) # 001 mean sample number
-                |- label_001 (dataset)
                 |- data_002
-                |- label_002
                 |  .......
+                |- labels
             |- user02
             |   ......
             |- user03
             |- user04
             | .......
-        |-test  ( group ) # user 24-25
+        |-test  ( group ) # user split_numer - 25
 
 
         Why I construct this file tree is all gesture data(.mp4) has different length, so I think each has to have differnt dataset
@@ -44,10 +44,14 @@ def create_hdf5(directory, hdf5_filename, split_number):
         : Can't write data  (errno = 28, error message = 'No space left on device', buf = 000002BA16309020, total write size = 7121, bytes this sub-write = 7121, bytes actually written = 18446744073709551615, offset = 181744050443)
     '''
 
-    Label_csv = pd.read_csv('Gesture_Data_Labels - Sheet1.csv')
+    Label_csv = pd.read_csv(csv_path) # 'Gesture_Data_Labels - Sheet1.csv'
     label_map = {}
     for value, key in enumerate(Label_csv.Label.unique()):
         label_map[key] = value
+
+    # save label_mapping
+    with open('label_map.pickle', 'wb') as f:
+        pickle.dump(label_map, f, pickle.HIGHEST_PROTOCOL)
 
     with h5py.File(hdf5_filename, 'w') as f:
         f.clear()
@@ -56,10 +60,11 @@ def create_hdf5(directory, hdf5_filename, split_number):
         data_grp = f.create_group('data')
         train_grp = data_grp.create_group('train')
         test_grp = data_grp.create_group('test')
-        for i in range(1, 26):
+        for i in range(1, 3):
             fns = gather_dat(directory, i)
             # print(fns)
             user = i
+            # print(user)
             is_train = i < split_number
             user_num = fill_zero(i, 2)
             if is_train:
@@ -67,36 +72,41 @@ def create_hdf5(directory, hdf5_filename, split_number):
             else:
                 subgroup = test_grp.create_group(f'user{user_num}')
 
-            frames = []
+
             for file_d in tqdm(fns):
                 # frames
                 frame = []
                 cap = cv2.VideoCapture(file_d)
 
-                while True:
-                    retval, image = cap.read()
+                total_frames = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+                frames_step = total_frames//20
 
-                    if not retval:
-                        break
+                for i in range(20):
+                    cap.set(1, i*frames_step)
+                    success, image = cap.read()
                     frame.append(image)
 
+                cap.release()
+
+
+            # sample_num setting
                 temp = file_d.split('-')[-1][:-4]
                 sample_num = int(temp)
 
-                label = Label_csv[(Label_csv['User'] == user) & (
-                    Label_csv['Sample Number'] == sample_num)]['Label'].values[0]
-                label = label_map[label]
-
                 sample_fill = fill_zero(sample_num, 3)
+
                 subgroup.create_dataset(
                     f'data_{sample_fill}', data=frame, dtype=np.float64, compression='gzip')
-                subgroup.create_dataset(
-                    f'label_{sample_fill}', data=label, dtype=np.int16)
+
+            label = Label_csv[(Label_csv['User'] == user)]['Label'].values
+
+            labels = list(map(lambda x: label_map[x], label))
+
+            subgroup.create_dataset(
+                f'labels', data=labels, dtype=np.int16)
 
             metas.append({'user': str(user), 'training sample': is_train})
             subgroup.attrs['meta_info'] = str(metas[-1])
-
-# c : int = 3
 
 
 def gather_dat(directory, id):
@@ -109,8 +119,10 @@ def gather_dat(directory, id):
     '''
 
     fns = []
-    search_mask = str(id) + directory
+    user_num = fill_zero(id, 2)
+    search_mask = user_num + directory
     glob_out = glob.glob('./'+search_mask+'/*')
+
 
     if len(glob_out) > 0:
         fns += glob_out
@@ -126,6 +138,11 @@ def fill_zero(num, l):
                     l (int) : return number's expected length 
 
     '''
-    length = l - len(str(num))
-    fill_num = str(num).zfill(length)
+    fill_num = str(num).zfill(l)
     return fill_num
+
+
+# if __name__ == "__main__":
+#     directory = "_data_rgb"
+#     hdf5_filename = "example.hdf5"
+#     create_hdf5(directory, hdf5_filename, 20)
