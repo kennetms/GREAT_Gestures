@@ -60,7 +60,7 @@ def create_hdf5(directory, hdf5_filename, split_number, csv_path):
         data_grp = f.create_group('data')
         train_grp = data_grp.create_group('train')
         test_grp = data_grp.create_group('test')
-        for i in range(1, 3):
+        for i in range(1, 26):
             fns = gather_dat(directory, i)
             # print(fns)
             user = i
