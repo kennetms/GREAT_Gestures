@@ -84,7 +84,8 @@ def create_hdf5(directory, hdf5_filename, split_number, csv_path):
                 for i in range(20):
                     cap.set(1, i*frames_step)
                     success, image = cap.read()
-                    frame.append(image)
+                    image_re = cv2.resize(image, dsize=(224,224), interpolation = cv2.INTER_AREA)
+                    frame.append(image_re)
 
                 cap.release()
 
@@ -144,5 +145,5 @@ def fill_zero(num, l):
 
 # if __name__ == "__main__":
 #     directory = "_data_rgb"
-#     hdf5_filename = "example.hdf5"
-#     create_hdf5(directory, hdf5_filename, 20)
+#     hdf5_filename = "example2.hdf5"
+#     create_hdf5(directory, hdf5_filename, 20, 'Gesture_Data_Labels - Sheet1.csv')
